@@ -1,0 +1,222 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: MLA
+'Project Start Date: 2/7/2011
+'Hooks:
+'  16890
+'Notes:
+'  Motion Tech Automation
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.Control.CallSub(Chk)
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.Chk.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Chk_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.Control.If(V.Passed.000065,=,"Unflagged EDI")
+	F.Intrinsic.Control.CallSub(Flag)
+F.Intrinsic.Control.ElseIf(V.Passed.000065,=,"Flagged EDI")
+	F.Intrinsic.Control.CallSub(Unflag)
+F.Intrinsic.Control.ElseIf(V.Passed.000065,=,"Exported EDI")
+	F.Intrinsic.Control.CallSub(Export)
+F.Intrinsic.Control.ElseIf(V.Passed.000065,=,"Export Error")
+
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Chk_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Chk.End
+
+Program.Sub.Flag.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sPO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Flag_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.UI.Msgbox("Are you sure you want to flag order for EDI?","",4,V.Local.iRet)
+F.Intrinsic.String.LPad(V.Passed.000008,0,7,V.Local.sPO)
+F.Intrinsic.Control.If(V.Local.iRet,=,6)
+	F.Intrinsic.String.Concat("Select * From ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+		F.ODBC.con!rst.AddNew
+		F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPO)
+		F.ODBC.con!rst.Set!Flagged_EDI(1)
+		F.ODBC.con!rst.Set!Flagged_Exported(0)
+		F.ODBC.con!rst.Set!Flagged_Error(0)
+		F.ODBC.con!rst.Set!Last_Change_By(V.Caller.User)
+		F.ODBC.con!rst.Update
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat("Update ATG_3725_EDI_PO_Flag Set Flagged_EDI = 1, Flagged_Exported = 0, Flagged_Error = 0, Last_Change_By = '",V.Caller.User,"' where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+	F.Intrinsic.Control.EndIf
+	V.Passed.000065.Set("Flagged EDI")
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Flag_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Flag.End
+
+Program.Sub.Unflag.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sPO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Unflag_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.UI.Msgbox("Are you sure you want to unflag order for EDI?","",4,V.Local.iRet)
+F.Intrinsic.String.LPad(V.Passed.000008,0,7,V.Local.sPO)
+F.Intrinsic.Control.If(V.Local.iRet,=,6)
+	F.Intrinsic.String.Concat("Select * From ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+		F.ODBC.con!rst.AddNew
+		F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPO)
+		F.ODBC.con!rst.Set!Flagged_EDI(0)
+		F.ODBC.con!rst.Set!Flagged_Exported(0)
+		F.ODBC.con!rst.Set!Flagged_Error(0)
+		F.ODBC.con!rst.Set!Last_Change_By(V.Caller.User)
+		F.ODBC.con!rst.Update
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat("Update ATG_3725_EDI_PO_Flag Set Flagged_EDI = 0, Flagged_Exported = 0, Flagged_Error = 0, Last_Change_By = '",V.Caller.User,"' where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+	F.Intrinsic.Control.EndIf
+	V.Passed.000065.Set("Unflagged EDI")
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unflag_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Unflag.End
+
+Program.Sub.Export.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sPO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Export_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.UI.Msgbox("Are you sure you want to make order eligible to be exported again?","",4,V.Local.iRet)
+F.Intrinsic.String.LPad(V.Passed.000008,0,7,V.Local.sPO)
+F.Intrinsic.Control.If(V.Local.iRet,=,6)
+	F.Intrinsic.String.Concat("Select * From ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Passed.008002,"' and Line_No = '",V.Local.sPO,"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+		F.ODBC.con!rst.AddNew
+		F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPO)
+		F.ODBC.con!rst.Set!Flagged_EDI(1)
+		F.ODBC.con!rst.Set!Flagged_Exported(0)
+		F.ODBC.con!rst.Set!Flagged_Error(0)
+		F.ODBC.con!rst.Set!Last_Change_By(V.Caller.User)
+		F.ODBC.con!rst.Update
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat("Update ATG_3725_EDI_PO_Flag Set Flagged_EDI = 1, Flagged_Exported = 0, Flagged_Error = 0, Last_Change_By = '",V.Caller.User,"' where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+	F.Intrinsic.Control.EndIf
+	V.Passed.000065.Set("Flagged EDI")
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Export_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Export.End
+
+Program.Sub.ExportErr.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sPO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("ExportErr_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.UI.Msgbox("Are you sure all errors are resolved?","",4,V.Local.iRet)
+F.Intrinsic.String.LPad(V.Passed.000008,0,7,V.Local.sPO)
+F.Intrinsic.Control.If(V.Local.iRet,=,6)
+	F.Intrinsic.String.Concat("Select * From ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+		F.ODBC.con!rst.AddNew
+		F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPO)
+		F.ODBC.con!rst.Set!Flagged_EDI(1)
+		F.ODBC.con!rst.Set!Flagged_Exported(0)
+		F.ODBC.con!rst.Set!Flagged_Error(0)
+		F.ODBC.con!rst.Set!Last_Change_By(V.Caller.User)
+		F.ODBC.con!rst.Update
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat("Update ATG_3725_EDI_PO_Flag Set Flagged_EDI = 1, Flagged_Exported = 0, Flagged_Error = 0, Last_Change_By = '",V.Caller.User,"' where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+		F.ODBC.Connection!con.Execute(V.Local.sSql)
+	F.Intrinsic.Control.EndIf
+	V.Passed.000065.Set("Flagged EDI")
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("ExportErr_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.ExportErr.End
+
+Program.Sub.Comments.Start
+${$0$}$ATG_3725_EDI_PO_Flag_Script$}$JCT$}$4/7/2016
+${$1$}$$}$$}$0$}$16890$}$PUS064GH-SCRIPT-1-HOOK (PO MAINTENANCE)$}$4/7/2016 2:09:18 PM$}$(Program: PUR064GH ; Screen: PUS064GH)
+
+Program.Sub.Comments.End
+
