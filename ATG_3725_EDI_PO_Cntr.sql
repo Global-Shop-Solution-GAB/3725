@@ -1,0 +1,3 @@
+CREATE TABLE "ATG_3725_EDI_PO_Cntr"(
+ "Counter" INTEGER DEFAULT '0'
+);
