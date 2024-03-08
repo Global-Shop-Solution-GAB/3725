@@ -1,0 +1,114 @@
+Program.Sub.ScreenSU.Start
+gui.SS_Form1..create
+gui.SS_Form1..caption("EDI PO Acknowledgment")
+gui.SS_Form1..size(4135,1825)
+gui.SS_Form1..position(0,0)
+gui.SS_Form1..event(unload,ss_form1_unload)
+gui.SS_Form1..alwaysontop(False)
+gui.SS_Form1..fontname("Arial")
+gui.SS_Form1..fontsize(8)
+gui.SS_Form1..forecolor(0)
+gui.SS_Form1..fontstyle(,,,,)
+gui.SS_Form1..BackColor(-2147483633)
+gui.SS_Form1..controlbox(True)
+gui.SS_Form1..maxbutton(False)
+gui.SS_Form1..minbutton(False)
+gui.SS_Form1..mousepointer(0)
+gui.SS_Form1..moveable(True)
+gui.SS_Form1..sizeable(False)
+gui.SS_Form1..ShowInTaskBar(True)
+gui.SS_Form1..titlebar(True)
+gui.SS_Form1.lbl_dtpBegDate.create(label,"Beginning Date",True,1800,200,1,100,135,True,0,Arial,8,-2147483633,0)
+gui.SS_Form1.dtpBegDate.create(datepicker)
+gui.SS_Form1.dtpBegDate.visible(True)
+gui.SS_Form1.dtpBegDate.size(1800,345)
+gui.SS_Form1.dtpBegDate.zorder(0)
+gui.SS_Form1.dtpBegDate.position(100,335)
+gui.SS_Form1.dtpBegDate.enabled(True)
+gui.SS_Form1.dtpBegDate.checkbox(False)
+gui.SS_Form1.lbl_dtpEndDate.create(label,"Ending Date",True,1800,200,1,1985,135,True,0,Arial,8,-2147483633,0)
+gui.SS_Form1.dtpEndDate.create(datepicker)
+gui.SS_Form1.dtpEndDate.visible(True)
+gui.SS_Form1.dtpEndDate.size(1800,345)
+gui.SS_Form1.dtpEndDate.zorder(0)
+gui.SS_Form1.dtpEndDate.position(1985,335)
+gui.SS_Form1.dtpEndDate.enabled(True)
+gui.SS_Form1.dtpEndDate.checkbox(False)
+gui.SS_Form1.cmdPrint.create(button)
+gui.SS_Form1.cmdPrint.caption("Print")
+gui.SS_Form1.cmdPrint.visible(True)
+gui.SS_Form1.cmdPrint.size(1000,360)
+gui.SS_Form1.cmdPrint.zorder(0)
+gui.SS_Form1.cmdPrint.position(100,850)
+gui.SS_Form1.cmdPrint.enabled(True)
+gui.SS_Form1.cmdPrint.fontname("Arial")
+gui.SS_Form1.cmdPrint.fontsize(8)
+gui.SS_Form1.cmdPrint.event(click,cmdprint_click)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: mla
+'Project Start Date: 5/23/2011
+'Notes:
+'  Motion Tech
+Gui.SS_Form1..Show
+
+Program.Sub.Main.End
+
+Program.Sub.CallBI.Start
+V.Local.sError.Declare(String)
+V.Local.iBI.Declare(Long)
+V.Local.sParam.Declare(String)
+V.Local.sParamVal.Declare(String)
+V.Local.sBegDate.Declare(String)
+V.Local.sEndDate.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("CallBI_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.String.Format(V.Screen.SS_Form1!dtpBegDate.Value,"YYYYMMDD",V.Local.sBegDate)
+F.Intrinsic.String.Format(V.Screen.SS_Form1!dtpEndDate.Value,"YYYYMMDD",V.Local.sEndDate)
+F.Global.BI.GetIDFromName("ATG_3725_BI_EDI_PO_Ack.rpt",V.Local.iBI)
+V.Local.sParam.Set("BegDate*!*EndDate")
+F.Intrinsic.String.Concat(V.Local.sBegDate,"*!*",V.Local.sEndDate,V.Local.sParamVal)
+F.Intrinsic.String.Split(V.Local.sParam,"*!*",V.Local.sParam)
+F.Intrinsic.String.Split(V.Local.sParamVal,"*!*",V.Local.sParamVal)
+F.Global.BI.PrintReport(V.Local.iBI,0,V.Local.sParam,V.Local.sParamVal,"",False)
+F.Intrinsic.Control.CallSub(Ss_form1_unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("CallBI_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.CallBI.End
+
+program.sub.cmdprint_click.start
+Gui.SS_Form1..Visible(False)
+F.Intrinsic.Control.CallSub(Callbi)
+
+program.sub.cmdprint_click.end
+
+program.sub.ss_form1_unload.start
+F.Intrinsic.Control.End
+
+program.sub.ss_form1_unload.end
+
+Program.Sub.ScreenSS.Start
+SS_Form1{{CAPTION::EDI PO Acknowledgment
+SS_Form1.CTRL{{NAME::dtpBegDate\\TYPE::6\\CAPTION::Beginning Date\\GROUP::1\\BROWSER::0
+SS_Form1.CTRL{{NAME::dtpEndDate\\TYPE::6\\CAPTION::Ending Date\\GROUP::1\\BROWSER::0
+SS_Form1.CTRL{{NAME::cmdPrint\\TYPE::5\\CAPTION::Print\\GROUP::-1\\BROWSER::0
+
+Program.Sub.ScreenSS.End
+
