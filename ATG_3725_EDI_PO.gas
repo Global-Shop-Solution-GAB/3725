@@ -1,0 +1,818 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Variable.Global.sFiles.Declare(String)
+Variable.Global.sLocFile.Declare(String)
+Variable.Global.i.Declare(Long,0)
+Variable.Global.iFlag.Declare(Long,0)
+Variable.Global.bBusy.Declare(Boolean,False)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: MLA
+'Project Start Date: 2/10/2011
+'Notes:
+'  Motion Tech
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'Eventhandler to handle errors from FTP
+F.Intrinsic.Control.AddEventHandler("FTPError","FTPErrorEvent")
+'Eventhandler to handle list directory event from FTP
+F.Intrinsic.Control.AddEventHandler("FTPDirList","FTPDirEvent")
+'Eventhandler to hanlde end of transfer events from FTP
+F.Intrinsic.Control.AddEventHandler("FTPEndTransfer","FTPEndTransfer")
+'Evenhandler to handle current status of FTP events from FTP
+F.Intrinsic.Control.AddEventHandler("FTPPITrail","FTPPITrail")
+'Calling logon to FTP server
+F.Intrinsic.Control.CallSub(Ftplogon)
+'Getting directory list from FTP server
+F.Intrinsic.Control.CallSub(Listdir)
+
+Program.Sub.Main.End
+
+Program.Sub.Send850.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.sWrite.Declare(String)
+V.Local.iCnt.Declare(Long)
+V.Local.sCnt.Declare(String)
+V.Local.sDate.Declare(String)
+V.Local.sYear.Declare(String)
+V.Local.iSeg.Declare(Long)
+V.Local.sISA.Declare(String)
+V.Local.sISAQlf.Declare(String)
+V.Local.bVendChk.Declare(Boolean)
+V.Local.sDate1.Declare(String)
+V.Local.sDate2.Declare(String)
+V.Local.sTime.Declare(String)
+V.Local.sFileLoc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Send850_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sSql.Set("Select Counter from ATG_3725_EDI_PO_Cntr")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Counter(0)
+	F.ODBC.con!rst.Update
+	V.Local.iCnt.Set(0)
+F.Intrinsic.Control.Else
+	V.Local.iCnt.Set(V.ODBC.con!rst.FieldValLong!Counter)
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+
+V.Local.sSql.set("Select * from ATG_3725_EDI_PO_Flag where Flagged_EDI = '1'")
+F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Control.DoUntil(V.ODBC.con!rst.EOF,=,True)
+	F.Intrinsic.String.Concat("Select * from V_PO_HEADER where PURCHASE_ORDER = '",V.ODBC.con!rst.FieldValTrim!Purchase_Order,"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstPOHdr",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rstPOHdr.EOF,=,False)
+		V.Local.bVendChk.Set(False)
+		F.Intrinsic.Control.If(V.ODBC.con!rstPOHdr.FieldValTrim!VENDOR,=,"BRP")
+			V.Local.sISA.Set("602246142")
+			V.Local.sISAQlf.Set("01")
+			V.Local.bVendChk.Set(True)
+		F.Intrinsic.Control.ElseIf(V.ODBC.con!rstPOHdr.FieldValTrim!VENDOR,=,"BRL")
+			V.Local.sISA.Set("625790795")
+			V.Local.sISAQlf.Set("01")
+			V.Local.bVendChk.Set(True)
+		F.Intrinsic.Control.ElseIf(V.ODBC.con!rstPOHdr.FieldValTrim!VENDOR,=,"BRC")
+			V.Local.sISA.Set("021302526")
+			V.Local.sISAQlf.Set("01")
+			V.Local.bVendChk.Set(True)
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.String.Format(V.Ambient.Date,"YYMMDD",V.Local.sDate1)
+		F.Intrinsic.String.Format(V.Ambient.Date,"YYYYMMDD",V.Local.sDate2)
+		F.Intrinsic.String.Format(V.Ambient.Now,"HHNN",V.Local.sTime)
+		F.Intrinsic.Control.If(V.Local.bVendChk,=,True)
+			F.Intrinsic.Math.Add(V.Local.iCnt,1,V.Local.iCnt)
+			F.Intrinsic.String.RPad(V.Local.sISA," ",15,V.Local.sISA)
+			F.Intrinsic.String.LPad(V.Local.iCnt,"0",9,V.Local.sCnt)
+			F.Intrinsic.String.Concat("ISA~00~          ~00~          ~12~6517309039     ~",V.Local.sISAQlf,"~",V.Local.sISA,"~",V.Local.sDate1,"~",V.Local.sTime,"~U~00401~",V.Local.sCnt,"~0~p~^",V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Replace(V.Local.sISA," ","",V.Local.sISA)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"GS~PO~6517309039~",V.Local.sISA,"~",V.Local.sDate2,"~",V.Local.sTime,"~",V.Local.iCnt,"~X~004010",V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"ST~850~",V.Local.sCnt,V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Format(V.ODBC.con!rstPOHdr.FieldVal!DATE_ORDER,"YYYYMMDD",V.Local.sDate)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"BEG~00~SA~",V.ODBC.con!rst.FieldValTrim!Purchase_Order,"~~",V.Local.sDate,V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"CUR~BY~USD",V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"REF~PD~",V.ODBC.con!rstPOHdr.FieldValTrim!USER_1,V.Ambient.NewLine,V.Local.sWrite)
+			V.Local.iSeg.Set(4)
+			F.Intrinsic.String.Concat("Select BUYER from V_BUYERS where BUYER_CODE = '",V.ODBC.con!rstPOHdr.FieldValTrim!BUYER,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rstBuyer",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rstBuyer.EOF,<>,True)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"PER~BD~",V.ODBC.con!rstBuyer.FieldValTrim!BUYER,"~TE~651-730-9010",V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rstBuyer.Close
+			F.Intrinsic.String.Concat(V.Local.sWrite,"FOB~",V.ODBC.con!rstPOHdr.FieldValTrim!CODE_FOB,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"TD5~~91~",V.ODBC.con!rstPOHdr.FieldValTrim!SHIP_VIA,V.Local.sWrite)
+			F.Intrinsic.Math.Add(V.Local.iSeg,2,V.Local.iSeg)
+			F.Intrinsic.String.Concat("Select * from V_PO_PAY_TO where PURCHASE_ORDER = '",V.ODBC.con!rst.FieldValTrim!Purchase_Order,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rstAddr",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"N1~ST~",V.ODBC.con!rstAddr.FieldValTrim!NAME_VENDOR_PAY,"~92~83",V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"N3~",V.ODBC.con!rstAddr.FieldValTrim!ADDRESS_1_PAY,V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"N4~",V.ODBC.con!rstAddr.FieldValTrim!CITY_PAY,"~",V.ODBC.con!rstAddr.FieldValTrim!STATE_PAY,"~",V.ODBC.con!rstAddr.FieldValTrim!ZIP_PAY,"~US",V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rstAddr.Close
+			V.Local.sSql.Set("Select NAME_COMPANY from V_COMPANY")
+			F.ODBC.Connection!con.OpenRecordsetRO("rstComp",V.Local.sSql)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"N1~BY~",V.ODBC.con!rstComp.FieldValTrim!NAME_COMPANY,"~92~83",V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+			F.ODBC.con!rstComp.Close
+			F.Intrinsic.String.Concat("select PURCHASE_ORDER, RECORD_NO, PART,DESCRIPTION, UM_PURCHASING, COST, QTY_ORDER, DATE_DUE_LINE from "PO_LINES" where PURCHASE_ORDER = '",V.ODBC.con!rst.FieldValTrim!Purchase_Order,"' Order By RECORD_NO",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rstPOLine",V.Local.sSql)
+			F.Intrinsic.Control.DoUntil(V.ODBC.con!rstPOLine.EOF,=,True)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"PO1~",V.ODBC.con!rstPOLine.FieldValTrim!RECORD_NO,"~",V.ODBC.con!rstPOLine.FieldValFloat!QTY_ORDER,"~",V.ODBC.con!rstPOLine.FieldValTrim!UM_PURCHASING,"~",V.ODBC.con!rstPOLine.FieldValFloat!COST,"~",V.ODBC.con!rstPOLine.FieldValTrim!UM_PURCHASING,"~BP~",V.ODBC.con!rstPOLine.FieldValTrim!PART,"~VP~",V.ODBC.con!rstPOLine.FieldValTrim!PART,V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"PID~F~~~~",V.ODBC.con!rstPOLine.FieldValTrim!DESCRIPTION,V.Ambient.NewLine,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+				F.Intrinsic.String.Right(V.ODBC.con!rstPOLine.FieldValTrim!DATE_DUE_LINE,2,V.Local.sYear)
+				F.Intrinsic.String.Concat("20",V.Local.sYear,V.Local.sYear)
+				F.Intrinsic.String.Left(V.ODBC.con!rstPOLine.FieldValTrim!DATE_DUE_LINE,4,V.Local.sDate)
+				F.Intrinsic.String.Concat(V.Local.sYear,V.Local.sDate,V.Local.sDate)
+				F.Intrinsic.String.Concat(V.Local.sWrite,"SCH~",V.ODBC.con!rstPOLine.FieldValFloat!QTY_ORDER,"~",V.ODBC.con!rstPOLine.FieldValTrim!UM_PURCHASING,"~~~002~",V.Local.sDate,V.Local.sWrite)
+				F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+				F.ODBC.con!rstPOLine.MoveNext
+			F.Intrinsic.Control.Loop
+			F.ODBC.con!rstPOLine.Close
+			F.Intrinsic.Math.Add(V.Local.iSeg,1,V.Local.iSeg)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"SE~",V.Local.iSeg,"~",V.Local.sCnt,V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"GE~000001~",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+			F.Intrinsic.String.Concat(V.Local.sWrite,"IEA~00001~",V.Local.sCnt,V.Local.sWrite)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rstPOHdr.Close
+	F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.ODBC.con!rst.FieldValTrim!Purchase_Order,"850",V.Local.sFileLoc)
+	F.Intrinsic.File.String2File(V.Local.sFileLoc,V.Local.sWrite)
+	F.ODBC.con!rst.MoveNext
+F.Intrinsic.Control.Loop
+F.ODBC.con!rst.Close
+
+V.Local.sSql.Set("Select Counter from ATG_3725_EDI_PO_Cntr")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Counter(0)
+	F.ODBC.con!rst.Update
+	V.Local.iCnt.Set(0)
+F.Intrinsic.Control.Else
+	F.ODBC.con!rst.Set!Counter(V.Local.iCnt)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Send850_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Send850.End
+
+Program.Sub.Unload.Start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.FTPLogon.Start
+V.Local.sError.Declare(String)
+V.Local.bRet.Declare(Boolean)
+
+F.Intrinsic.Control.SetErrorHandler("FTPLogon_Err")
+F.Intrinsic.Control.ClearErrors
+
+'Checking to see if already connected
+F.Communication.FTP.ReadProperty("Connected",V.Local.bRet)
+'If not connected, establish connection to FTP
+F.Intrinsic.Control.If(V.Local.bRet,=,False)
+	F.Communication.FTP.SetProperty("User","ftpMotionTech")
+	F.Communication.FTP.SetProperty("Password","HmY8skmPSN")
+	F.Communication.FTP.SetProperty("RemoteHost","209.221.243.36")
+	F.Communication.FTP.Logon
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FTPLogon_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FTPLogon.End
+
+Program.Sub.ListDir.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("ListDir_Err")
+F.Intrinsic.Control.ClearErrors
+
+'Setting path on FTP server to path files need to be downloaded from
+F.Communication.FTP.SetProperty("RemotePath","ftpdisc/MotionTechAutomation/send")
+'Setting mode flag to know in EndOfTransfer even that this is a list directory transfer
+V.Global.iFlag.Set(0)
+'Calling list directory to get file list from FTP
+F.Communication.FTP.ListDirectory
+F.Intrinsic.Control.CallSub(Bbusy)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("ListDir_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.ListDir.End
+
+Program.Sub.FTPErrorEvent.Start
+V.Local.sError.Declare(String)
+V.Local.sErrorMsg.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FTPErrorEvent_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.String.Concat("Error occurred: ",V.Ambient.ErrorCode," ",V.Args.Description,V.Local.sErrorMsg)
+F.Intrinsic.UI.Msgbox(V.Local.sErrorMsg,"Error Occurred")
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FTPErrorEvent_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FTPErrorEvent.End
+
+Program.Sub.FTPDirEvent.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FTPDirEvent_Err")
+F.Intrinsic.Control.ClearErrors
+
+'For each file found in list direcotry, adding to string to form an array from filenames
+F.Intrinsic.Control.If(V.Global.sFiles,=,"")
+	V.Global.sFiles.Set(V.Args.Filename)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Concat(V.Global.sFiles,"*!*",V.Args.Filename,V.Global.sFiles)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FTpDirEvent_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FTPDirEvent.End
+
+Program.Sub.FTPPITrail.Start
+V.Local.sError.Declare(String)
+V.Local.sPIT.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FTPPITrail_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sPIT.Set(V.Args.message)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FTPPITrail_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FTPPITrail.End
+
+Program.Sub.FTPEndTransfer.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FTPEndTransfer_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.Debug.Stop
+'End if transfer event, based on mode 0 - List Directory, 1 - Download, 2 - Upload
+F.Intrinsic.Control.SelectCase(V.Global.iFlag)
+	F.Intrinsic.Control.Case(1)
+		'Delete original file from FTP, then download next file in array
+		F.Communication.FTP.DeleteFile(V.Global.sFiles(V.Global.i))
+		F.Intrinsic.Control.If(V.Global.i,<,V.Global.sFiles.UBound)
+			F.Intrinsic.Math.Add(V.Global.i,1,V.Global.i)
+			F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Receive\",V.Global.sFiles(V.Global.i),V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("LocalFile",V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("RemoteFile",V.Global.sFiles(V.Global.i))
+			F.Communication.FTP.SetProperty("TransferMode",2)
+			F.Communication.FTP.SetProperty("Overwrite",True)
+			F.Communication.FTP.Download
+		'Once all files are downloaded, beging processing them
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.CallSub(Downloadproc)
+			F.Intrinsic.Control.CallSub(Send850)
+			F.Intrinsic.Control.CallSub(Uploadproc)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Case(2)
+		'Delete local file being uploaded, and upload next file in array
+		F.Intrinsic.File.DeleteFile(V.Global.sFiles(V.Global.i))
+		F.Intrinsic.Control.If(V.Global.i,<,V.Global.sFiles.UBound)
+			F.Intrinsic.Math.Add(V.Global.i,1,V.Global.i)
+			F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.Global.sFiles(V.Global.i),V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("LocalFile",V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("RemoteFile",V.Global.sFiles(V.Global.i))
+			F.Communication.FTP.SetProperty("TransferMode",2)
+			F.Communication.FTP.SetProperty("Overwrite",True)
+			F.Communication.FTP.Upload
+		'Once all files are uploaded, end program
+		F.Intrinsic.Control.Else
+			V.Global.bBusy.Set(True)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Case(0)
+		'After list directory events finishes, checking to see if file list is empty, if so calling sub to upload purchase orders
+		F.Intrinsic.Control.If(V.Global.sFiles,=,"")
+			F.Intrinsic.Control.CallSub(Send850)
+			F.Intrinsic.Control.CallSub(Uploadproc)
+		'If not empty initiating first download
+		F.Intrinsic.Control.Else
+			V.Global.iFlag.Set(1)
+			F.Intrinsic.String.Split(V.Global.sFiles,"*!*",V.Global.sFiles)
+			F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Receive\",V.Global.sFiles(V.Global.i),V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("LocalFile",V.Global.sLocFile)
+			F.Communication.FTP.SetProperty("RemoteFile",V.Global.sFiles(V.Global.i))
+			F.Communication.FTP.SetProperty("TransferMode",2)
+			F.Communication.FTP.SetProperty("Overwrite",True)
+			F.Communication.FTP.Download
+		F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FTPEndTransfer_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FTPEndTransfer.End
+
+Program.Sub.DownloadProc.Start
+V.Local.sError.Declare(String)
+V.Local.sFiles.Declare(String)
+V.Local.sFileID.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.i.Declare(Long)
+
+F.Intrinsic.Control.SetErrorHandler("DownloadProc_Err")
+F.Intrinsic.Control.ClearErrors
+
+'Getting file list of downloaded files
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Receive",V.Local.sFiles)
+F.Intrinsic.File.GetFileList(V.Local.sFiles,V.Local.sFiles)
+F.Intrinsic.Control.If(V.Local.sFiles,<>,"")
+	F.Intrinsic.String.Split(V.Local.sFiles,";",V.Local.sFiles)
+	F.Intrinsic.Control.For(V.Local.i,V.Local.sFiles.LBound,V.Local.sFiles.UBound,1)
+		'Forming FQP for each file in loop
+		F.Intrinsic.String.Concat(V.Caller.FilesDir,"EDI\Receive\",V.Local.sFiles(V.Local.i),V.Local.sFile)
+		'Getting the file ID type
+		F.Intrinsic.String.Left(V.Local.sFiles(V.Local.i),13,V.Local.sFileID)
+		F.Intrinsic.String.Right(V.Local.sFileID,3,V.Local.sFileID)
+		F.Intrinsic.Control.SelectCase(V.Local.sFileID)
+			'997's are Function Acknowledgements that are just deleted
+			F.Intrinsic.Control.Case(997)
+				F.Intrinsic.File.DeleteFile(V.Local.sFile)
+			'855's are Purchase Order Acknowledgments
+			F.Intrinsic.Control.Case(855)
+				F.Intrinsic.Control.CallSub(Recv855,"File",V.Local.sFile)
+				F.Intrinsic.File.DeleteFile(V.Local.sFile)
+			'824's are Application Advices, they are what's received when there is a error with a purchase order
+			F.Intrinsic.Control.Case(824)
+				F.Intrinsic.Control.CallSub(Recv824,"File",V.Local.sFile)
+				F.Intrinsic.File.DeleteFile(V.Local.sFile)
+			'810's are Purchase Order Invoices
+			F.Intrinsic.Control.Case(810)
+				F.Intrinsic.Control.CallSub(Recv810,"File",V.Local.sFile)
+				F.Intrinsic.File.DeleteFile(V.Local.sFile)
+		F.Intrinsic.Control.EndSelect
+	F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.EndIf
+'Once all files are completed, call sub to send purchase orders
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("DownloadProc_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.DownloadProc.End
+
+Program.Sub.Recv855.Start
+V.Local.sError.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.sChk.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sPONum.Declare(String)
+V.Local.sPOLine.Declare(String)
+V.Local.sCost.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.fOrigCost.Declare(Float)
+V.Local.sDate1.Declare(String)
+V.Local.sDate2.Declare(String)
+V.Local.sTime.Declare(String)
+V.Local.iCnt.Declare(Long)
+V.Local.sCnt.Declare(String)
+V.Local.sISA.Declare(String)
+V.Local.sWrite.Declare(String)
+V.Local.sRcvCnt.Declare(String)
+V.Local.sFileLoc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Recv855_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sSql.Set("Select Counter from ATG_3725_EDI_PO_Cntr")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Counter(0)
+	F.ODBC.con!rst.Update
+	V.Local.iCnt.Set(0)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Math.Add(V.Local.iCnt,1,V.Local.iCnt)
+	F.ODBC.con!rst.Set!Counter(V.Local.iCnt)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.File.File2String(V.Args.File,V.Local.sFile)
+F.Intrinsic.String.Split(V.Local.sFile,V.Ambient.NewLine,V.Local.sFile)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sFile.LBound,V.Local.sFile.UBound,1)
+	V.Local.sLine.Redim(0,0)
+	F.Intrinsic.String.Left(V.Local.sFile,3,V.Local.sChk)
+	F.Intrinsic.Control.SelectCase(V.Local.sChk)
+		F.Intrinsic.Control.Case("ISA")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			V.Local.sISA.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.CallSub("GS")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			V.Local.sRcvCnt.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.Case("BAK")
+			F.Intrinsic.String.Split(V.Local.sFile(v.Local.i),"^",V.Local.sLine)
+			V.Local.sPONum.Set(V.Local.sLine(3))
+		F.Intrinsic.Control.Case("PO1")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			F.Intrinsic.Control.If(V.Local.sPOLine,=,"")
+				V.Local.sPOLine.Set(V.Local.sLine(1))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sPOLine,"*!*",V.Local.sLine(1),V.Local.sPOLine)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.Local.sCost,=,"")
+				V.Local.sCost.Set(V.Local.sLine(4))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sCost,"*!*",V.Local.sLine(3),V.Local.sCost)
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.String.Concat("Select * from ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPONum,"'",V.Local.sSql)
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+	F.ODBC.con!rst.Set!Flagged_EDI(0)
+	F.ODBC.con!rst.Set!Flagged_Exported(1)
+	F.ODBC.con!rst.Set!Flagged_Error(0)
+	F.ODBC.con!rst.Set!Last_Change_By("EDI")
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+V.Local.sSql.Set("Select * from ATG_3725_EDI_PO_Ack")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.String.Split(V.Local.sPOLine,"*!*",V.Local.sPOLine)
+F.Intrinsic.String.Split(V.Local.sCost,"*!*",V.Local.sCost)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sPOLine.LBound,V.Local.sPOLine.UBound,1)
+	F.Intrinsic.String.Concat("Select COST from V_PO_LINES where PURCHASE_ORDER = '",V.Local.sPONum,"' and RECORD_NO = '",V.Local.sPOLine(V.Local.i),"'",V.Local.sSql)
+	F.ODBC.Connection!con.OpenRecordsetRO("rstPO",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+		V.Local.fOrigCost.Set(V.ODBC.con!rstPO.FieldValFloat!COST)
+	F.Intrinsic.Control.Else
+		V.Local.fOrigCost.Set(0)
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rstPO.Close
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPONum)
+	F.ODBC.con!rst.Set!Line_No(V.Local.sPOLine(V.Local.i))
+	F.ODBC.con!rst.Set!Cost(V.Local.sCost(V.Local.i).Float)
+	F.ODBC.con!rst.Set!Orig_Cost(V.Local.fOrigCost)
+	F.ODBC.con!rst.Set!Date_Recv(V.Ambient.Date)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYMMDD",V.Local.sDate1)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYYYMMDD",V.Local.sDate2)
+F.Intrinsic.String.Format(V.Ambient.Now,"HHNN",V.Local.sTime)
+F.Intrinsic.String.LPad(V.Local.iCnt,"0",9,V.Local.sCnt)
+F.Intrinsic.String.Concat("ISA~00~          ~00~          ~12~6517309039     ~01~",V.Local.sISA,"~",V.Local.sDate1,"~",V.Local.sTime,"~U~00401~",V.Local.sCnt,"~0~p~^",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Replace(V.Local.sISA," ","",V.Local.sISA)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GS~PO~6517309039~",V.Local.sISA,"~",V.Local.sDate2,"~",V.Local.sTime,"~",V.Local.iCnt,"~X~004010",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"ST*997*",V.Local.sCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK1*IN*",V.Local.sRcvCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK9*A*1*1*1",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"SE*4*",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GE~000001~",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"IEA~00001~",V.Local.sCnt,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.Local.sCnt,"855",V.Local.sFileLoc)
+F.Intrinsic.File.String2File(V.Local.sFileLoc,V.Local.sWrite)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Recv855_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Recv855.End
+
+Program.Sub.Recv824.Start
+V.Local.sError.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.sChk.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sPONum.Declare(String)
+V.Local.sPOError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iCnt.Declare(Long)
+V.Local.sDate1.Declare(String)
+V.Local.sDate2.Declare(String)
+V.Local.sTime.Declare(String)
+V.Local.sCnt.Declare(String)
+V.Local.sWrite.Declare(String)
+V.Local.sISA.Declare(String)
+V.Local.sRcvCnt.Declare(String)
+V.Local.sFileLoc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Recv824_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sSql.Set("Select Counter from ATG_3725_EDI_PO_Cntr")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Counter(0)
+	F.ODBC.con!rst.Update
+	V.Local.iCnt.Set(0)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Math.Add(V.Local.iCnt,1,V.Local.iCnt)
+	F.ODBC.con!rst.Set!Counter(V.Local.iCnt)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.File.File2String(V.Args.File,V.Local.sFile)
+F.Intrinsic.String.Split(V.Local.sFile,V.Ambient.NewLine,V.Local.sFile)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sFile.LBound,V.Local.sFile.UBound,1)
+	V.Local.sLine.Redim(0,0)
+	F.Intrinsic.String.Left(V.Local.sFile,3,V.Local.sChk)
+	F.Intrinsic.Control.SelectCase(V.Local.sChk)
+		F.Intrinsic.Control.Case("ISA")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"*",V.Local.sLine)
+			V.Local.sISA.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.CallSub("GS")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"*",V.Local.sLine)
+			V.Local.sRcvCnt.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.Case("OTI")
+			F.Intrinsic.String.Split(V.Local.sFile(v.Local.i),"*",V.Local.sLine)
+			V.Local.sPONum.Set(V.Local.sLine(3))
+		F.Intrinsic.Control.Case("TED")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			F.Intrinsic.Control.If(V.Local.sPOError,=,"")
+				V.Local.sPOError.Set(V.Local.sLine(2))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sPOError,"*!*",V.Local.sLine(2),V.Local.sPOError)
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.String.Concat("Select * from ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPONum,"'",V.Local.sSql)
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+	F.ODBC.con!rst.Set!Flagged_EDI(0)
+	F.ODBC.con!rst.Set!Flagged_Exported(0)
+	F.ODBC.con!rst.Set!Flagged_Error(1)
+	F.ODBC.con!rst.Set!Last_Change_By("EDI")
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+V.Local.sSql.Set("Select * from ATG_3725_EDI_PO_Adv")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.String.Split(V.Local.sPOError,"*!*",V.Local.sPOError)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sPOError.LBound,V.Local.sPOError.UBound,1)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPONum)
+	F.ODBC.con!rst.Set!Error(V.Local.sPOError(V.Local.i))
+	F.ODBC.con!rst.Set!Error_Date(V.Ambient.Date)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYMMDD",V.Local.sDate1)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYYYMMDD",V.Local.sDate2)
+F.Intrinsic.String.Format(V.Ambient.Now,"HHNN",V.Local.sTime)
+F.Intrinsic.String.LPad(V.Local.iCnt,"0",9,V.Local.sCnt)
+F.Intrinsic.String.Concat("ISA~00~          ~00~          ~12~6517309039     ~01~",V.Local.sISA,"~",V.Local.sDate1,"~",V.Local.sTime,"~U~00401~",V.Local.sCnt,"~0~p~^",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Replace(V.Local.sISA," ","",V.Local.sISA)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GS~PO~6517309039~",V.Local.sISA,"~",V.Local.sDate2,"~",V.Local.sTime,"~",V.Local.iCnt,"~X~004010",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"ST*997*",V.Local.sCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK1*IN*",V.Local.sRcvCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK9*A*1*1*1",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"SE*4*",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GE~000001~",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"IEA~00001~",V.Local.sCnt,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.Local.sCnt,"824",V.Local.sFileLoc)
+F.Intrinsic.File.String2File(V.Local.sFileLoc,V.Local.sWrite)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Recv824_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Recv824.End
+
+Program.Sub.Recv810.Start
+V.Local.sError.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.sChk.Declare(String)
+V.Local.sLine.Declare(String)
+V.Local.sPONum.Declare(String)
+V.Local.sPOLine.Declare(String)
+V.Local.sCost.Declare(String)
+V.Local.sQty.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.fOrigCost.Declare(Float)
+V.Local.iCnt.Declare(Long)
+V.Local.sCnt.Declare(String)
+V.Local.sWrite.Declare(String)
+V.Local.sISA.Declare(String)
+V.Local.sTime.Declare(String)
+V.Local.sDate1.Declare(String)
+V.Local.sDate2.Declare(String)
+V.Local.sRcvCnt.Declare(String)
+V.Local.sFileLoc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Recv855_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sSql.Set("Select Counter from ATG_3725_EDI_PO_Cntr")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Counter(0)
+	F.ODBC.con!rst.Update
+	V.Local.iCnt.Set(0)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Math.Add(V.Local.iCnt,1,V.Local.iCnt)
+	F.ODBC.con!rst.Set!Counter(V.Local.iCnt)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.EndIf
+F.ODBC.con!rst.Close
+F.Intrinsic.File.File2String(V.Args.File,V.Local.sFile)
+F.Intrinsic.String.Split(V.Local.sFile,V.Ambient.NewLine,V.Local.sFile)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sFile.LBound,V.Local.sFile.UBound,1)
+	V.Local.sLine.Redim(0,0)
+	F.Intrinsic.String.Left(V.Local.sFile,3,V.Local.sChk)
+	F.Intrinsic.Control.SelectCase(V.Local.sChk)
+		F.Intrinsic.Control.Case("ISA")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			V.Local.sISA.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.CallSub("GS")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			V.Local.sRcvCnt.Set(V.Local.sLine(6))
+		F.Intrinsic.Control.Case("BIG")
+			F.Intrinsic.String.Split(V.Local.sFile(v.Local.i),"^",V.Local.sLine)
+			V.Local.sPONum.Set(V.Local.sLine(2))
+		F.Intrinsic.Control.Case("IT1")
+			F.Intrinsic.String.Split(V.Local.sFile(V.Local.i),"^",V.Local.sLine)
+			F.Intrinsic.Control.If(V.Local.sPOLine,=,"")
+				V.Local.sPOLine.Set(V.Local.sLine(1))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sPOLine,"*!*",V.Local.sLine(1),V.Local.sPOLine)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.Local.sCost,=,"")
+				V.Local.sCost.Set(V.Local.sLine(4))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sCost,"*!*",V.Local.sLine(3),V.Local.sCost)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.Local.sQty,=,"")
+				V.Local.sQty.Set(V.Local.sLine(2))
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Concat(V.Local.sQty,"*!*",V.Local.sLine(2),V.Local.sQty)
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+F.Intrinsic.Control.Next(V.Local.i)
+V.Local.sSql.Set("Select * from ATG_3725_EDI_PO_Inv")
+F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+F.Intrinsic.String.Split(V.Local.sPOLine,"*!*",V.Local.sPOLine)
+F.Intrinsic.String.Split(V.Local.sCost,"*!*",V.Local.sCost)
+F.Intrinsic.String.Split(V.Local.sQty,"*!*",V.Local.sQty)
+F.Intrinsic.Control.For(V.Local.i,V.Local.sPOLine.LBound,V.Local.sPOLine.UBound,1)
+	F.ODBC.con!rst.AddNew
+	F.ODBC.con!rst.Set!Purchase_Order(V.Local.sPONum)
+	F.ODBC.con!rst.Set!Line_No(V.Local.sPOLine(V.Local.i))
+	F.ODBC.con!rst.Set!Quantity_Invoiced(V.Local.sQty(V.Local.i).Float)
+	F.ODBC.con!rst.Set!Cost(V.Local.sCost(V.Local.i).Float)
+	F.ODBC.con!rst.Set!Date_Recv(V.Ambient.Date)
+	F.ODBC.con!rst.Update
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYMMDD",V.Local.sDate1)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYYYMMDD",V.Local.sDate2)
+F.Intrinsic.String.Format(V.Ambient.Now,"HHNN",V.Local.sTime)
+F.Intrinsic.String.LPad(V.Local.iCnt,"0",9,V.Local.sCnt)
+F.Intrinsic.String.Concat("ISA~00~          ~00~          ~12~6517309039     ~01~",V.Local.sISA,"~",V.Local.sDate1,"~",V.Local.sTime,"~U~00401~",V.Local.sCnt,"~0~p~^",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Replace(V.Local.sISA," ","",V.Local.sISA)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GS~PO~6517309039~",V.Local.sISA,"~",V.Local.sDate2,"~",V.Local.sTime,"~",V.Local.iCnt,"~X~004010",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"ST*997*",V.Local.sCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK1*IN*",V.Local.sRcvCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"AK9*A*1*1*1",V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"SE*4*",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"GE~000001~",V.Local.iCnt,V.Ambient.NewLine,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Local.sWrite,"IEA~00001~",V.Local.sCnt,V.Local.sWrite)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.Local.sCnt,"810",V.Local.sFileLoc)
+F.Intrinsic.File.String2File(V.Local.sFileLoc,V.Local.sWrite)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Recv855_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Recv810.End
+
+Program.Sub.UploadProc.Start
+V.Local.sError.Declare(String)
+V.Local.sFileLoc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("UploadProc_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Communication.FTP.SetProperty("RemotePath","ftpdisc/MotionTechAutomation/receive")
+V.Global.iFlag.Set(2)
+V.Global.sFiles.Redim(0,0)
+V.Global.sFiles.Set("")
+V.Global.i.Set(0)
+F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send",V.Local.sFileLoc)
+F.Intrinsic.File.GetFileList(V.Local.sFileLoc,V.Global.sFiles)
+F.Intrinsic.Control.If(V.Global.sFiles,=,"")
+	V.Global.bBusy.Set(True)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Split(V.Global.sFiles,"*!*",V.Global.sFiles)
+	F.Intrinsic.String.Concat(V.Caller.FilesDir,"\EDI\Send\",V.Global.sFiles(V.Global.i),V.Global.sLocFile)
+	F.Communication.FTP.SetProperty("LocalFile",V.Global.sLocFile)
+	F.Communication.FTP.SetProperty("RemoteFile",V.Global.sFiles(V.Global.i))
+	F.Communication.FTP.SetProperty("TransferMode",2)
+	F.Communication.FTP.SetProperty("Overwrite",True)
+	F.Communication.FTP.Upload
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("UploadProc_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.UploadProc.End
+
+Program.Sub.BBusy.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("BBusy_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.Control.DoUntil(V.Global.bBusy,=,True)
+	F.Intrinsic.UI.SleepMS(250)
+F.Intrinsic.Control.Loop
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BBusy_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.BBusy.End
+
+
