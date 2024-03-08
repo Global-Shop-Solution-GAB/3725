@@ -1,0 +1,75 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: MLA
+'Project Start Date: 2/7/2011
+'Hooks:
+'  16855, 16850
+'Notes:
+'  Motion Tech Automation
+
+F.Intrinsic.Debug.Stop
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.Control.CallSub(Chk)
+
+Program.Sub.Main.End
+
+Program.Sub.Chk.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.sPO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("Chk_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.String.LPad(V.Passed.000008,0,7,V.Local.sPO)
+F.Intrinsic.String.Concat("Select * From ATG_3725_EDI_PO_Flag where Purchase_Order = '",V.Local.sPO,"'",V.Local.sSql)
+F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	V.Passed.000065.Set("Unflagged EDI")
+	F.ODBC.con!rst.Close
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.If(V.ODBC.con!rst.FieldVal!Flagged_EDI,=,True)
+		V.Passed.000065.Set("Flagged EDI")
+	F.Intrinsic.Control.ElseIf(V.ODBC.con!rst.FieldVal!Flagged_Exported,=,True)
+		V.Passed.000065.Set("Exported EDI")
+	F.Intrinsic.Control.ElseIf(V.ODBC.con!rst.FieldVal!Flagged_Error,=,True)
+		V.Passed.000065.Set("Export Error")
+	F.Intrinsic.Control.Else
+		V.Passed.000065.Set("Unflagged EDI")
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rst.Close
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Chk_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Chk.End
+
+Program.Sub.Unload.Start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$ATG_3725_EDI_PO_Flag$}$JCT$}$4/7/2016
+${$1$}$$}$$}$1$}$16850$}$PUS064GH-POPULATE-HOOK (PO MAINTENANCE)$}$4/7/2016 2:10:24 PM$}$(Program: PUR064GH ; Screen: PUS064GH)
+
+${$1$}$$}$$}$0$}$16855$}$PUS064GH-PO-CHANGE$}$4/7/2016 2:10:09 PM$}$(Program: PUR064GH ; Screen: PUS064GH)
+
+Program.Sub.Comments.End
+
