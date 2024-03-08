@@ -1,0 +1,155 @@
+Program.Sub.ScreenSU.Start
+gui.SS_Form1..create
+gui.SS_Form1..caption("Select EDI Invoices to Delete")
+gui.SS_Form1..size(6735,3885)
+gui.SS_Form1..position(0,0)
+gui.SS_Form1..event(unload,ss_form1_unload)
+gui.SS_Form1..alwaysontop(False)
+gui.SS_Form1..fontname("Arial")
+gui.SS_Form1..fontsize(8)
+gui.SS_Form1..forecolor(0)
+gui.SS_Form1..fontstyle(,,,,)
+gui.SS_Form1..BackColor(-2147483633)
+gui.SS_Form1..controlbox(True)
+gui.SS_Form1..maxbutton(False)
+gui.SS_Form1..minbutton(False)
+gui.SS_Form1..mousepointer(0)
+gui.SS_Form1..moveable(True)
+gui.SS_Form1..sizeable(False)
+gui.SS_Form1..ShowInTaskBar(True)
+gui.SS_Form1..titlebar(True)
+gui.SS_Form1.lvwInv.create(listview)
+gui.SS_Form1.lvwInv.view(3)
+gui.SS_Form1.lvwInv.addlistviewcolumn("Purchase Order",1500,0)
+gui.SS_Form1.lvwInv.addlistviewcolumn("Line",1000,0)
+gui.SS_Form1.lvwInv.addlistviewcolumn("Quantity",1500,0)
+gui.SS_Form1.lvwInv.addlistviewcolumn("Cost",1000,0)
+gui.SS_Form1.lvwInv.addlistviewcolumn("Date",1000,0)
+gui.SS_Form1.lvwInv.visible(True)
+gui.SS_Form1.lvwInv.size(6330,2765)
+gui.SS_Form1.lvwInv.zorder(0)
+gui.SS_Form1.lvwInv.position(100,135)
+gui.SS_Form1.lvwInv.enabled(True)
+gui.SS_Form1.lvwInv.borderstyle(1)
+gui.SS_Form1.lvwInv.fontname("Arial")
+gui.SS_Form1.lvwInv.fontsize(8)
+gui.SS_Form1.cmdDelete.create(button)
+gui.SS_Form1.cmdDelete.caption("Delete")
+gui.SS_Form1.cmdDelete.visible(True)
+gui.SS_Form1.cmdDelete.size(1000,360)
+gui.SS_Form1.cmdDelete.zorder(0)
+gui.SS_Form1.cmdDelete.position(130,2975)
+gui.SS_Form1.cmdDelete.enabled(True)
+gui.SS_Form1.cmdDelete.fontname("Arial")
+gui.SS_Form1.cmdDelete.fontsize(8)
+gui.SS_Form1.cmdDelete.event(click,cmddelete_click)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Coded by: mla
+'Project Start Date: 5/23/2011
+'Notes:
+'  Motion Tech
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+Gui.SS_Form1.lvwInv.Checkboxes(True)
+F.Intrinsic.Control.CallSub(Loadlist)
+Gui.SS_Form1..Show
+
+Program.Sub.Main.End
+
+Program.Sub.LoadList.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.i.Declare(Long)
+
+F.Intrinsic.Control.SetErrorHandler("Sub_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.SS_Form1.lvwInv.ClearItems
+V.Local.sSql.Set("Select * from ATG_3725_EDI_PO_Inv")
+F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Control.DoUntil(V.ODBC.con!rst.EOF,=,True)
+	F.Intrinsic.Math.Add(V.Local.i,1,V.Local.i)
+	Gui.SS_Form1.lvwInv.AddListItem(V.Local.i,V.ODBC.con!rst.FieldValTrim!Purchase_Order)
+	Gui.SS_Form1.lvwInv.SetListItemSubItemText(V.Local.i,1,V.ODBC.con!rst.FieldValTrim!Line_No)
+	Gui.SS_Form1.lvwInv.SetListItemSubItemText(V.Local.i,2,V.ODBC.con!rst.FieldValTrim!Quantity_Invoiced)
+	Gui.SS_Form1.lvwInv.SetListItemSubItemText(V.Local.i,3,V.ODBC.con!rst.FieldValTrim!Cost)
+	Gui.SS_Form1.lvwInv.SetListItemSubItemText(V.Local.i,4,V.ODBC.con!rst.FieldValTrim!Date_Recv)
+	F.ODBC.con!rst.MoveNext
+F.Intrinsic.Control.Loop
+F.ODBC.con!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Sub_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.LoadList.End
+
+program.sub.cmddelete_click.start
+V.Local.sError.Declare(String)
+V.Local.sChk.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.i.Declare(Long)
+V.Local.sText.Declare(String)
+V.Local.dDate.Declare(Date)
+V.Local.sSql.Declare(String)
+
+
+F.Intrinsic.Control.SetErrorHandler("cmdDelete_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.SS_Form1.lvwInv.RetrieveCheckedListItems(V.Local.sChk)
+F.Intrinsic.Control.If(V.Local.sChk,=,"***NORETURN***")
+	F.Intrinsic.UI.Msgbox("No records selected to delete!","No Selection")
+F.Intrinsic.Control.Else
+	F.Intrinsic.UI.Msgbox("Are you sure you want to delete selected records?","Delete Records",4,V.Local.iRet)
+	F.Intrinsic.Control.If(V.Local.iRet,=,6)
+		F.Intrinsic.String.Split(V.Local.sChk,"*!*",V.Local.sChk)
+		F.Intrinsic.Control.For(V.Local.i,V.Local.sChk.LBound,V.Local.sChk.UBound,1)
+			V.Local.sText.Set(V.Screen.SS_Form1!lvwInv.ListItemTextExtended(V.Local.sChk(V.Local.i)))
+			F.Intrinsic.String.Split(V.Local.sText,"*!*",V.Local.sText)
+			V.Local.dDate.Set(V.Local.sText(4))
+			F.Intrinsic.String.Concat("Select * from ATG_3725_EDI_PO_Inv where Purchase_Order = '",V.Local.sText(0),"' and Line_No = '",V.Local.sText(1),"' and  Date_Recv = '",V.Local.dDate.PervasiveDate,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRW("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+				F.ODBC.con!rst.Delete
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rst.Close
+		F.Intrinsic.Control.Next(V.Local.i)
+		F.Intrinsic.Control.CallSub(Loadlist)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdDelete_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+program.sub.cmddelete_click.end
+
+program.sub.ss_form1_unload.start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+program.sub.ss_form1_unload.end
+
+Program.Sub.ScreenSS.Start
+SS_Form1{{CAPTION::Select EDI Invoices to Delete
+SS_Form1.CTRL{{NAME::lvwInv\\TYPE::7\\GROUP::-1\\BROWSER::0
+SS_Form1.CTRL{{NAME::cmdDelete\\TYPE::5\\CAPTION::Delete\\GROUP::-1\\BROWSER::0
+
+Program.Sub.ScreenSS.End
+
